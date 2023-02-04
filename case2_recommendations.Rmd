@@ -1,0 +1,160 @@
+---
+title: 'How can a Wellness Technology Company Play it Smart?'
+author: "E.Corr"
+date: "2022-12-22"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+### Conclusions & Recommendations
+
+#### Business Task
+Analyze smart device usage data in order to gain insight into how consumers use non-Bellabeat smart devices. Then select one Bellabeat product to apply these insights to and 
+using this information, establish high-level recommendations for how these trends can inform Bellabeat marketing strategy.
+
+The Recommendations below are based on analysis of the FitBit Fitness Tracker dataset.
+
+A report on initial data processing steps can be found here..
+
+For the comprehensive analysis of the smart device fitness data, checkout my reports here:
+
+For Python analysis in Jupyter Notebook ..
+
+For R analysis using R Studio …
+
+```{r loading packages, message=FALSE, warning=FALSE, include=FALSE}
+library(ggplot2)
+library(Hmisc)
+library(dplyr)
+library(patchwork)
+library(reshape2)
+library(gridExtra)
+library(ggcorrplot)
+library(reshape2)
+library(ggbeeswarm)
+library("tidyverse")
+```
+
+
+```{r import hours, include=FALSE}
+# Import the data & Describe
+hours = read.csv("clean_data/hr_merge.csv")
+hours <- subset(hours, select = -X)
+
+```
+
+```{r hours: format date, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# format date
+hours$ActivityHour <- as.POSIXct(hours$ActivityHour, format= "%Y-%m-%d %H:%M:%S")
+hours <- hours[order(hours$ActivityHour),]
+
+# Extract hour from date/time
+hours$Hour <- as.numeric(strftime(hours$ActivityHour, format="%H"))
+
+chart <- hours %>%
+  select(ActivityHour, Calories, TotalIntensity) %>%
+  gather(key = "variable", value = "value", -ActivityHour)
+
+ggplot(chart, aes(x = ActivityHour, y = value)) + 
+  geom_line(aes(color = variable, linetype = variable)) + 
+  labs(y="") +
+  ggtitle("Hourly Intensity & Calories") +
+  theme(plot.title = element_text(size = 11)) +
+  scale_color_manual(values = c("darkorange", "steelblue"))
+
+```
+
+
+```{r import Heart Rate data, include=FALSE}
+
+sleepHR = read.csv("clean_data/min_sleep_HR_inner.csv")
+sleepHR <- subset(sleepHR, select = -X)
+
+```
+
+
+```{r processing HR data, include=FALSE}
+
+sleepHR$ActivityMinute <- as.POSIXct(sleepHR$ActivityMinute, format="%Y-%m-%d")
+# order the date
+sleepHR <-sleepHR[order(sleepHR$ActivityMinute),]
+
+# Create a DayName column from the datetime
+sleepHR$DayName <- weekdays(sleepHR$ActivityMinute)  
+
+# to allow us to view the correlation of dayName we can add dayName as a number
+sleepHR$DayOfWeek <- as.integer(factor(sleepHR$DayName,
+                                       levels=c("Tuesday","Wednesday",
+                                                                "Thursday",
+                                                                "Friday","Saturday","Sunday",
+                                                                "Monday"),ordered=TRUE))
+
+# To get accurate MET values, divide by 10.
+sleepHR$METs <- sleepHR$METs / 10
+# Group "Hours" into parts of the day
+sleepHR$PartOfDay <- with(sleepHR,
+                       ifelse((Hour >= 5 & Hour < 12), "morning",
+                              ifelse((Hour >= 12 & Hour < 17), "afternoon",
+                                     ifelse((Hour >=17 & Hour < 21), "evening",
+                                            "night"))))
+# Rename "State" to "SleepLevel"
+sleepHR <- sleepHR %>% 
+  rename(SleepLevel = State)
+print(paste0("Intensity Levels: " ,unique(sleepHR$Intensity)))
+print(paste0("Sleep Levels: " ,unique(sleepHR$SleepLevel)))
+
+```
+
+
+```{r HR analysis, echo=FALSE}
+
+ggplot(sleepHR, aes(x=factor(DayName),y=meanHR, fill=factor(PartOfDay))) +
+  geom_boxplot() +
+  labs(title="Average Heart Rate by PartOfDay", x="Day of Week") +
+  theme(plot.title = element_text(size = 11)) 
+
+ 
+```
+
+
+#### The Data
+
+- Sample date range is small and does not take into account seasonal variations throughout the year. Most of the data was collected over a 31 day period between the months of April and May in 2016. This may impact intensity levels, where and when users exercise and the distance covered. Also, user health plans and exercise patterns may have changed since 2016.
+
+
+- At most there are 33 users worth of data. For sleep related features, this was reduced to 24 users. For Heart Rate data this was reduced even further to 11 users.
+
+- Fewer number of users are using the sleep tracking features. Users should be made more aware that tracking sleep patterns can provide important information on a user’s health, fitness and wellbeing.
+
+- Users are not optimising the LoggedActivitiesDistance Feature which I assume is manually created activities created by the user and is in kilometres. Is this feature necesary? Perhaps this could be improved or replaced with something that is user friendly.
+
+- Hardly anyone uses the weight tracking feature. There could be an opportunity to improve this feature by adding a scales feature to the app, or develop a feature that will allow users to record weight easily.  
+
+
+#### Recommendations
+
+The main focus should be to improve the Bellabeat app, and improve customer exposure to Bellabeat wellness products and solutions.
+
+##### (1)
+- Consider predictive analytics / AI to help users plan, set targets and monitor their progress. The feature would act like a coach and depending on the users’ goals (example, lose x amount of weight over y period of time) would give them daily or weekly guidelines and progress reports on activity intensities, calories consumed / burned, sleep patterns, steps, etc. The feature might also alert the user when they are failing or meeting requirements to hit their predetermined target and alert the user to escalate activities if required. The app would use historical data from the user and data from users with similar profiles and goals. Additional features would also need to be added to achieve this, for example, adding an overall cardio score to the app could allow users to monitor, track and set targets to achieve their overall cardio fitness goals.
+
+- This feature can be promoted through marketing campaigns as a coaching feature and through the app itself, perhaps as part of a premium package. It can be accompanied by articles/advice on fitness schedules and types of exercises applicable to the gaol of the user. It would give the opportunity for Bellabeat to promote/recommend Bellabeat smart wellness products including Leaf, Time and Spring. There may also be the opportunity to expand the product range to support the user in their quest to reach their goals through the “coaching” feature.
+
+##### (2)
+- From the data, we can see that tracking weight has not been optimised by many of the users. If the Bellabeat app can connect to scales via Bluetooth it would make it easier and convenient for the customer to record their weight. Consider options like providing a Bellabeat scales product, provide a sponsored scales product, or to make it very convenient to the user, make it possible to connect and integrate to other non-bellabeat Bluetooth connected scales. To have a way of conveniently integrating weight scales to the app could have a unique selling point to current Bellabeat customers and potential customers.
+- And in conjunction with a “calories consumed” calculator, and calories burned data, this would be an ideal tool for users to monitor overall balance of calories consumed and burned with the goal of weight loss or weight control.
+
+
+##### (3)
+Other App improvements
+
+- To further improve analysis and subsequent insights, more up to date user data is required and over a longer period of time. Because of the small sample size analysis was difficult particularly around sleep related features, Heart Rate and weight features. With a bigger sample size and range of data it will be possible to draw more accurate insights.
+
+- We can really promote the connection and importance of time spent exercising and the burning of calories and general fitness. Also, that moving from lightly/fairly activities to higher activity minutes (and distance) can impact calories burned, general fitness and weight control.
+
+- If users can see and compare similar/matching profiles and stats of the most active and top performing participants (with adherence to data sharing permissions and anonymity/privacy standards of course), users could then emulate similar statistics, activity levels and intensities to improve their own health and fitness goals. 
+- Keeping track of your heart rate can give you insights into your fitness level, heart health and emotional health. An overview of Heart Rates over time can give users insights into when (days of the week and time of the day) their heart rates are rising and falling and if these variations are a result of normal activities, exercise, or stress.
+- Regarding sleep patterns, if participants can see their sleep profile - including how much sleep and the quality of that sleep - they could make the necessary adjustments to improve their sleep and overall general wellbeing.
+

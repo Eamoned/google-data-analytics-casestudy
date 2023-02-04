@@ -1,0 +1,1550 @@
+---
+title: 'Case Study: How can a Wellness Technology Company Play it Smart?'
+author: "ECorr"
+date: "2022-12-22"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+### Analyze
+In this step we will analyze the data in order to establish trends, and relationships, thus providing insights that will help answer business questions.
+
+Key Tasks:
+
+- Create summary statistics
+- Aggregate the data so it's useful and accessible
+- Clean, organise, transform and format the data
+- Perform calculations
+- Explore and identify trends and relationships and visualise them
+- Highlight observations and opportunities for app and business improvements
+
+
+###### Load Packages
+```{r loading packages, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(Hmisc)
+library(dplyr)
+library(patchwork)
+library(reshape2)
+library(gridExtra)
+library(ggcorrplot)
+library(reshape2)
+library(ggbeeswarm)
+library("tidyverse")
+```
+
+###### Import & describe the data
+```{r import data }
+dailyAct <- read.csv("clean_data/dailyActivity.csv")
+```
+
+```{r describe data}
+str(dailyAct)
+dim(dailyAct)
+summary(dailyAct)
+print(paste0("Number of unique Ids: " ,length(unique(dailyAct$Id))))
+print(paste0("There are " ,length(unique(dailyAct$ActivityDate)), " days of data"))
+print(paste0("Are there any NAs = ",any(is.na(dailyAct))))
+
+
+```
+
+###### Activity Levels (Distance)
+```{r}
+# create data frame for activity percentage (Distance)
+# total distance for each level
+Level <-  c("sedentary", "light", "moderate", "very")
+Distance <- c(sum(dailyAct$SedentaryActiveDistance),
+              sum(dailyAct$LightActiveDistance),
+              sum(dailyAct$ModeratelyActiveDistance),
+              sum(dailyAct$VeryActiveDistance))
+
+# Plot Pie chart for Distance
+piepercent<- round(100*(Distance/sum(Distance)), 2)
+pie(Distance, radius=1, labels = piepercent, col = rainbow(length(Distance)), 
+    main = "Activity Level: 12/04/2016-12/05/2026 (Distance)", cex.main = 1)
+legend("topright", Level,fill = rainbow(length(Distance)))
+
+```
+
+###### Activity Levels (Minutes)
+```{r}
+# Create data frame for activity percentage (Minutes) 
+# Total Minutes for each Level
+Level2 <- c('sedentary','fairly', 'lightly', 'very')
+Minutes <- c(sum(dailyAct$SedentaryMinutes),
+             sum(dailyAct$LightlyActiveMinutes),
+             sum(dailyAct$VeryActiveMinutes),
+             sum(dailyAct$FairlyActiveMinutes))
+
+# Plot Pie Chart for Minutes
+piepercent<- round(100*(Minutes/sum(Minutes)), 2)
+pie(Minutes, radius=1, labels = piepercent, col = rainbow(length(Minutes)), 
+    main = "Activity Level: 12/04/2016-12/05/2026 (Minutes)", cex.main = 1)
+legend("topright",Level2, cex = 0.8,fill = rainbow(length(Minutes)))
+```
+
+###### Distributions
+For Light, moderate and very active, zero distance is not relevant so lets remove zeros (has some impact on mean)
+
+Removing zeros distance will make a difference to the mean
+
+```{r distributions, message=FALSE, warning=FALSE}
+
+activityDist <- subset(dailyAct, select=c("ActivityDate", "LightActiveDistance","ModeratelyActiveDistance", "VeryActiveDistance"))
+activityDist <- melt(activityDist, id.vars = "ActivityDate", variable.name="level")
+# remove zeros
+activityDist[activityDist == 0] <- NA
+
+activityMins <- subset(dailyAct,select=c("ActivityDate","LightlyActiveMinutes",
+                                         "FairlyActiveMinutes", "VeryActiveMinutes"))
+activityMins <- melt(activityMins, id.vars = "ActivityDate", variable.name="level")
+# remove zeros
+activityMins[activityMins == 0] <- NA
+
+z1 <- ggplot(activityDist, aes(x=level,y=value, fill=level)) +
+  geom_boxplot() +
+  labs(title="Distance Distribution by Active Level", x="") +
+  theme(legend.position="none")+
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 30, vjust=+0.55))
+
+z2 <- ggplot(activityMins, aes(x=level,y=value, fill=level)) +
+  geom_boxplot() +
+  labs(title="Minutes Distribution by Active Level", x="") +
+  theme(legend.position="none")+
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 30, vjust=+0.55))
+
+grid.arrange(z1, z2, nrow = 1)
+
+```
+
+###### Summary
+```{r some stats, echo=FALSE}
+print(paste0("Average Daily Distance = ",mean(dailyAct$TotalDistance)))
+print(paste0("Average Daily Steps = ",mean(dailyAct$TotalSteps)))
+print(paste0("Average Daily Calories = ",mean(dailyAct$Calories)))
+
+print(paste0("Percentage light active distance: ",sum(dailyAct$LightActiveDistance)/sum(dailyAct$TotalDistance)*100))
+print(paste0("Percentage moderate active distance: ",sum(dailyAct$ModeratelyActiveDistance)/sum(dailyAct$TotalDistance)*100))
+print(paste0("Percentage very active distance: ",sum(dailyAct$VeryActiveDistance)/sum(dailyAct$TotalDistance)*100))
+print(paste0("Percentage sedentary active distance: ",sum(dailyAct$SedentaryActiveDistance)/sum(dailyAct$TotalDistance)*100))
+
+totMins <- sum(dailyAct$LightlyActiveMinutes) + sum(dailyAct$FairlyActiveMinutes) + sum(dailyAct$VeryActiveMinutes)
+
+# Percentage Summaries
+print(paste0("Percentage lightly active minutes:" ,sum(dailyAct$LightlyActiveMinutes)/totMins*100))
+print(paste0("Percentage fairly active minutes: " ,sum(dailyAct$FairlyActiveMinutes)/totMins*100))
+print(paste0("Percentage very active minutes: " ,sum(dailyAct$VeryActiveMinutes)/totMins*100))
+
+```
+
+#### Obervations:
+
+- There are 33 Ids, or users, worth of data which is not a huge sample size. Also, the sample date range is small i.e. 31 days of data in April and May.This is unlikely to take into account seasonal variations that occur throughout the year.
+- Of the total period of two weeks users spent 81% of their time in Sedentary, and inactive, with fairly active at 16%. Only 2% spent their time being lightly active and just 1% very active. So there's an opportunity to encourage people to spend less time in the inactive state. 
+
+Activity Levels:
+
+- Just over 61% of total distance achieved is through light active activities. This is followed by 28% very active distance activities. Only 10% is achieved through moderate activities.  Perhaps there's an opportunity to encourage people to plan & set goals to achieve higher activity levels which will in turn burn more calories and improve fitness.
+
+- In percentage terms for minutes spent on activities, Lightly has almost 85%, followed by very and then fairly active. 
+
+#### Opportunities:
+- Additional features which allow users to plan and set targets (with alerts) for times and distances at the different levels of activity. For example, increase or set higher targets for the percentage of time spent in the "fairly" to "Very" active levels. Or, increase the distance in the moderate to very active levels of exercise.
+
+###### Calories and Activity levels over time
+```{r activity over time}
+
+# Calories
+a1 <- ggplot(dailyAct, aes(x=as.character(ActivityDate), y = Calories))+
+  geom_line(stat="identity") +
+  ggtitle("Average Calories Burned") +
+  labs(x="", y="Calories") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+# Distance
+a21 <- ggplot(dailyAct, aes(x=as.character(ActivityDate), y = LightActiveDistance))+ 
+  geom_line(stat="identity", color = "brown") +
+  ggtitle('Light Active Distance') +
+  labs(x="", y="Average Distance") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+a22 <- ggplot(dailyAct, aes(x=as.character(ActivityDate), y = ModeratelyActiveDistance))+ 
+  geom_line(stat="identity", color = "blue") +
+  ggtitle('Moderately Active Distance') +
+  labs(x="", y="Average Distance") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+a23 <- ggplot(dailyAct, aes(x=as.character(ActivityDate), y = VeryActiveDistance))+ 
+  geom_line(stat="identity", color = "red") +
+  ggtitle('Very Active Distance') +
+  labs(x="", y="") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+# Minutes
+a24 <- ggplot(dailyAct, aes(x=as.character(ActivityDate), y = LightlyActiveMinutes))+ 
+  geom_line(stat="identity", color = "brown") +
+  ggtitle('Lightly Active Minutes') +
+  labs(x="", y="Average Minutes") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+a25 <- ggplot(dailyAct, aes(x=as.character(ActivityDate), y = FairlyActiveMinutes))+ 
+  geom_line(stat="identity", color = "blue") +
+  ggtitle('Fairly Active Minutes') +
+  labs(x="", y="Average Minutes") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+a26 <- ggplot(dailyAct, aes(x=as.character(ActivityDate), y = VeryActiveMinutes))+ 
+  geom_line(stat="identity", color = "red") +
+  ggtitle('Very Active Minutes') +
+  labs(x="", y="Average Minutes") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+grid.arrange(a1, a21, nrow = 1)
+grid.arrange(a22, a23, nrow = 1)
+grid.arrange(a24, a25, nrow = 1)
+grid.arrange(a26, nrow = 1)
+
+```
+
+#### Observations:
+- As we know and see from the data, increasing activity levels will increase the number of calories burned.
+- Distance analysis show that most of the very active distances occur above 6km approximately and light active distances are below 4km. Moderate distance between 3 and 6km.
+- For users who wish to be more active, then targeting above 4km would be adventurous. If they wish to increase activity significantly, and burn more calories, and lose more weight, then 6km and above would be good target.
+- Interpreting activity distances/minutes, users who wish to burn more calories can increase their minutes activity to the level they feel comfortable with. For a significant calorie burn, users can move from the the lightly active level and increase the the fairly and very active levels. 
+
+#### Opportunities:
+- The app could determine the users base line fitness and goals (e.g. lose weight, improve fitness) and then provide a fitness plan on activity levels (light, fairly, very), activity minutes, and activity distance required, with targets, to achieve that level or goal.
+
+To support visualisations, lets format the datetime, and create a DayName column from the datetime. 
+```{r format date}
+# change to date format
+dailyAct$ActivityDate <- as.POSIXct(dailyAct$ActivityDate, format="%Y-%m-%d")
+# order the date
+dailyAct <-dailyAct[order(dailyAct$ActivityDate),]
+# Create a DayName column from the datetime
+dailyAct$DayName <- weekdays(dailyAct$ActivityDate)  
+unique(dailyAct$DayName)
+
+# change DayName to a factor, i.e. for day order - Tues, Wed, etc)
+dailyAct$DayName <- factor(dailyAct$DayName, levels = c("Tuesday", "Wednesday", "Thursday",
+                                                        "Friday", "Saturday","Sunday","Monday"))
+```
+
+###### Calorie, Steps & Distance means/medians for Days
+
+```{r means}
+# Calculate average/median Calories for Day Name 
+calMean <- dailyAct %>%
+  group_by(DayName) %>%
+    summarise(meanCals = round(mean(Calories),0),
+              medianCals = round(median(Calories),0))
+
+# Calculate average/median Steps for Day Name
+stepsMean <- dailyAct %>%
+  group_by(DayName) %>%
+  summarise(meanSteps = round(mean(TotalSteps),0),
+            medianSteps = round(median(TotalSteps),0))
+
+# Calculate Average/median Distance for Day Name
+distMean <- dailyAct %>%
+  group_by(DayName) %>%
+  summarise(sumDist = round(sum(TotalDistance),0),
+            meanDist = round(mean(TotalDistance),0),
+            medianDist = round(median(TotalDistance),0))
+
+b1 <- ggplot(calMean, aes(x=DayName, y=medianCals)) + 
+  geom_bar(stat="identity", fill="lightblue") +
+  geom_line(aes(x=DayName,y=meanCals,group=1), stat="identity", color = "green") +
+  geom_point(color = "green", aes(x=DayName,y=meanCals)) +
+  theme(legend.position = "none") +
+  geom_text(size=3,aes(label=meanCals, x=DayName, y=meanCals), colour="black") +
+  ggtitle("Median/Mean(line) Calories Burned per Day")+
+  theme(plot.title = element_text(size = 10)) +
+  ylab("Calories") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.7))
+
+b2 <- ggplot(stepsMean, aes(x=DayName, y=medianSteps)) +
+  geom_bar(stat="identity", fill="lightblue") +
+  geom_line(aes(x=DayName,y=meanSteps,group=1), stat="identity", color = "green") +
+  geom_point(color = "green", aes(x=DayName,y=meanSteps)) +
+  theme(legend.position = "none") +
+  geom_text(size=3,aes(label=meanSteps, x=DayName, y=meanSteps), colour="black") +
+  ggtitle("Median/Mean(line) Steps per Day")+
+  theme(plot.title = element_text(size = 10)) +
+  ylab("Steps") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.7))
+
+b3 <- ggplot(distMean, aes(x=DayName, y=medianDist)) + 
+  geom_bar(stat="identity", fill="lightblue") +
+  geom_line(aes(x=DayName,y=meanDist,group=1), stat="identity", color = "green") +
+  geom_point(color = "green", aes(x=DayName,y=meanDist)) +
+  theme(legend.position = "none") +
+  geom_text(size=4,aes(label=meanDist, x=DayName, y=meanDist), colour="black") +
+  ggtitle("Median/Mean(line) Distance per Day")+
+  theme(plot.title = element_text(size = 10)) +
+  ylab("Distance") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.7))
+
+b4 <- ggplot(distMean, aes(x=DayName, y=sumDist, fill = DayName)) + 
+  geom_bar(stat="identity") +
+  theme(legend.position = "none") +
+  ggtitle("Total Distance per Day of the Week")+
+  theme(plot.title = element_text(size = 10)) +
+  ylab("Total Distance") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.7))
+
+grid.arrange(b1, b2, b3, b4, nrow = 2)
+
+```
+
+###### Activity Minutes over days of the week
+```{r Minutes}
+day_mins <- dailyAct %>%
+  group_by(DayName) %>%
+  summarise(Very = mean(VeryActiveMinutes),
+            Fairly = mean(FairlyActiveMinutes),
+            Lightly = mean(LightlyActiveMinutes),
+            Sedentary = mean(SedentaryMinutes))
+day_m <- melt(day_mins, id.vars = "DayName")
+
+c1 <- ggplot(day_m, aes(x=DayName, y = value, fill=variable)) + 
+  geom_bar(stat="summary", fun=sum, position = position_dodge()) + 
+  labs(x="Day of Week", y="Minutes") +
+  ggtitle("Mean Minutes for Days of the Week") +
+  theme(plot.title = element_text(size = 9)) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.7))
+
+# Excluding Sedentary
+day_mins <- dailyAct %>%
+  group_by(DayName) %>%
+  summarise(Very = mean(VeryActiveMinutes),
+            Fairly = mean(FairlyActiveMinutes),
+            Lightly = mean(LightlyActiveMinutes))
+day_m <- melt(day_mins, id.vars = "DayName")
+
+c2 <- ggplot(day_m, aes(x=DayName, y = value, group=variable, fill=variable)) + 
+  geom_line(stat="summary", fun=mean, aes(colour = variable)) +
+  ggtitle("Mean Mins for Days of Week (Excl Sedentary") +
+  geom_point(stat="summary", fun=mean, aes(colour = variable)) +
+  labs(x="Day of Week", y="") +
+  theme(plot.title = element_text(size = 9)) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.7))
+
+grid.arrange(c1, c2, nrow = 1)
+
+```
+
+#### Observations:
+- Generally Tuesday has the highest median/mean per day for Calories burned, steps and distance  
+- Sunday has the lowest. Understandably, most users appear to be more relaxed and chilled on a Sunday 
+- Overall 80% of minutes is Sedentary, which is understandable considering sleep patterns, and inactive physical periods during the day at home (e.g. watching TV) and at work (desk top work)
+- Leaving aside Sedentary, lightly active minutes takes up approximately 15%.
+
+#### Opportunities:
+- The app could provide information on low activity periods, and so encourage users to get more active on other days of the week, including weekends. Again this could play a part in the users overall fitness level and goal plan.
+- There could be scope in the app for allowing users to plan increases in fairly & very active minutes, and decrease Sedentary minutes. Users could then monitor this or receive badges when goals are meet, or receive alerts when they need to take action.
+
+###### Import & describe the sleep data
+```{r import sleep data}
+act_sleepDay = read.csv("clean_data/act_sleepDay_inner.csv")
+```
+
+```{r describe sleep data}
+str(act_sleepDay)
+dim(act_sleepDay)
+summary(subset(act_sleepDay, select=c("TotalTimeInBed","TotalMinutesAsleep")))
+print(paste0("Are there any NAs = ",any(is.na(act_sleepDay))))
+print(paste0("There are " ,length(unique(act_sleepDay$ActivityDate)), " days of data"))
+print(paste0("Number of unique Ids: " ,length(unique(act_sleepDay$Id))))
+```
+
+```{r sleep format}
+# Change data format & create day name
+act_sleepDay$ActivityDate <- as.POSIXct(act_sleepDay$ActivityDate, format="%Y-%m-%d")
+act_sleepDay <- act_sleepDay[order(act_sleepDay$ActivityDate),]
+act_sleepDay$DayName <- weekdays(act_sleepDay$ActivityDate)
+
+# Change DayName to a factor
+act_sleepDay$DayName <- factor(act_sleepDay$DayName,
+                               levels = c("Tuesday", "Wednesday", "Thursday",
+                                                        "Friday", "Saturday","Sunday","Monday"))
+```
+
+```{r sleep over time}
+
+# Time sleeping
+d1 <- ggplot(act_sleepDay, aes(x=as.character(ActivityDate), y = TotalMinutesAsleep))+
+  geom_line(stat="identity", color = "orange") +
+  ggtitle("Total Minutes Sleeping") +
+  labs(x="Activity Date", y="Minutes") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=5))
+
+# Time in bed
+d2 <- ggplot(act_sleepDay, aes(x=as.character(ActivityDate), y = TotalTimeInBed))+ 
+  geom_line(stat="identity", color = "blue") +
+  ggtitle('Total Time In Bed') +
+  labs(x="Activity Date", y="") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=5))
+grid.arrange(d1, d2, nrow = 1)
+
+```
+
+```{r sleep records}
+ggplot(act_sleepDay, aes(x=as.character(ActivityDate), y = TotalSleepRecords))+ 
+  geom_line(stat="identity", color = "blue") +
+  ggtitle('Total Sleep Records') +
+  labs(x="Activity Date", y="No. of Records") +
+  theme(plot.title = element_text(size = 11)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55),
+        axis.text=element_text(size=6))
+
+```
+
+```{r average time sleeping}
+act_avg <- act_sleepDay %>%
+  group_by(DayName) %>%
+  summarise(TotalTimeInBed = mean(TotalTimeInBed),
+            TotalMinutesAsleep = mean(TotalMinutesAsleep))
+
+act_avg <- melt(act_avg, id.vars = "DayName", variable.name="Mins")
+
+ggplot(act_avg, aes(x=DayName, y = value, fill=Mins)) + 
+  geom_bar(stat="identity", position = position_dodge()) + 
+  labs(x="Day of Week", y="Minutes") +
+  theme(plot.title = element_text(size = 12)) +
+  ggtitle("Day of the Week with Average Time in Bed & Total Sleep")
+  
+        
+e1 <- ggplot(act_sleepDay, aes(x=DayName,y=TotalTimeInBed, fill=DayName)) +
+  geom_boxplot() +
+  labs(title="Total Time in Bed by Days", x="", y="Minutes") +
+  theme(plot.title = element_text(size = 11)) +
+  theme(legend.position="none")+
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55))+
+  ylim(0, 1000)
+  
+
+e2 <- ggplot(act_sleepDay, aes(x=DayName,y=TotalMinutesAsleep, fill=DayName)) +
+  geom_boxplot() +
+  labs(title="Total Minutes Sleep by Day", x="", y="") +
+  theme(plot.title = element_text(size = 11)) +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55))+
+  ylim(0, 1000)
+
+grid.arrange(e1, e2, nrow=1, ncol=2)
+
+```
+
+Lets look at days In bed > 600 minutes and < 240 minutes 
+
+```{r analysr time in bed}
+# Lets look at days In bed > 600 minutes in bed
+
+# Count how many time in bed > 600 Minutes (> 10 hours)
+topTimeInBed_n <- filter(act_sleepDay, TotalTimeInBed > 600) %>%
+  group_by(DayName) %>%
+  summarise(countTimeInBed = n())
+
+# Total time in bed & asleep > 600 Minutes (> 10 hours)
+topTimeInBed <- filter(act_sleepDay, TotalTimeInBed > 600) %>%
+  group_by(DayName) %>%
+  summarise(TotalTimeInBed = sum(TotalTimeInBed),
+            TotalMinutesAsleep = sum(TotalMinutesAsleep))
+topTimeInBed <- melt(topTimeInBed, id.vars = "DayName", variable.name="Record") 
+
+f1 <- ggplot(topTimeInBed_n, aes(x=DayName, y = countTimeInBed)) + 
+  geom_bar(stat="identity", width=0.6,position = position_dodge(), fill="steelblue") + 
+  labs(x="Day of Week", y="Minutes") +
+  ggtitle("Count of Time in Bed > 600 minutes")+
+  theme(plot.title = element_text(size = 10))
+
+f2 <- ggplot(topTimeInBed, aes(x=DayName, y = value, fill=Record)) + 
+  geom_bar(stat="identity", width=0.6,position = position_dodge()) + 
+  labs(x="Day of Week", y="") +
+  ggtitle("Total Time in Bed > 600 minutes")+
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55))
+
+
+# Lets look at days In bed < 240 minutes
+
+# Count how many time in bed < 240 Minutes (< 4 hours)
+lessTimeInBed_n <- filter(act_sleepDay, TotalTimeInBed < 240) %>%
+  group_by(DayName) %>%
+  summarise(countTimeInBed = n())
+
+# Total time in bed & asleep < 240 Minutes (< 4 hours)
+lessTimeInBed <- filter(act_sleepDay, TotalTimeInBed < 240) %>%
+  group_by(DayName) %>%
+  summarise(TotalTimeInBed = sum(TotalTimeInBed),
+            TotalMinutesAsleep = sum(TotalMinutesAsleep))
+lessTimeInBed <- melt(lessTimeInBed, id.vars = "DayName", variable.name="Record") 
+
+f3 <- ggplot(lessTimeInBed_n, aes(x=DayName, y = countTimeInBed)) + 
+  geom_bar(stat="identity", width=0.6,position = position_dodge(), fill="steelblue") + 
+  labs(x="Day of Week", y="Minutes") +
+  ggtitle("Count of Time in Bed < 240 minutes")+
+  theme(plot.title = element_text(size = 10))
+
+f4 <- ggplot(lessTimeInBed, aes(x=DayName, y = value, fill=Record)) + 
+  geom_bar(stat="identity", width=0.6,position = position_dodge()) + 
+  labs(x="Day of Week", y="") +
+  ggtitle("Total Time in Bed < 240 minutes")+
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55))
+
+grid.arrange(f1, f2, f3, f4, nrow=2, ncol=2)
+
+```
+
+Number of sleep records > 1
+```{r records}
+# Number of Sleep Records > 1 for Day of the Week 
+sleepRecords <- filter(act_sleepDay, TotalSleepRecords > 1) %>%
+  group_by(DayName) %>%
+  summarise(TotalSleepRecords = sum(TotalSleepRecords))
+
+ggplot(sleepRecords, aes(x=DayName, y = TotalSleepRecords)) + 
+   geom_bar(stat="identity", width=0.6,position = position_dodge(), fill="steelblue") + 
+  labs(x="Day of Week", y="Records") +
+  ggtitle("Sleep Records > 1 for Day of the Week")+
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55))
+
+```
+
+#### Sleep Observations:
+
+- There are 24 users worth of data which is less then the daily activity data which had 33 Ids
+- The average time spent in bed is 458 minutes (7.6 hours) & the average time sleeping is 419 (7 hours) minutes
+- Max time spent asleep occurred (796 mins) on a Monday
+- Min time spent in bed occurred (58 mins) on a Sunday
+- The least median time spent in bed is normally during the week with Tuesday having the smallest median.
+- Participants spend the least median time asleep on a Friday
+- Largest median time spent in bed and asleep is by far a Sunday. Bed & sleep times of greater than 600 minutes usually occurred on both a Saturday and Sunday. Minutes less than 600 minutes usually occurred from Friday to Sunday, so there are large variations in sleep patterns over weekends.
+- Participants also tend to have more than one sleep occurrence on a weekend.  
+- The variation in weekend sleep patterns probably accounts for the absence of early scheduled working hours and large free time for eating out, entertaining, hobbies, family activities, etc. Perhaps people consider sleep at weekends as less important than working week days. At the same time, there's more freedom to stay in bed longer at weekends.Overall lazy weekend appears to be true for many users with large variations in bed and sleep patterns.
+
+#### Opportunities:
+
+- Opportunity to provide app users a overview of their sleep patterns, identifying where and when they are not reaching their sleep targets and providing hints or suggestions on how they could improve, including which days of the week and for how long. 
+
+###### Most active Participants (Ids)
+```{r id Analysis, message=FALSE, warning=FALSE}
+# Remove zeros
+ts <- dailyAct
+ts[ts == 0] <- NA
+
+g1 <- ggplot(ts, aes(x=DayName,y=VeryActiveDistance, fill=DayName)) +
+  geom_boxplot() +
+  labs(title="Ids with Top Very Active Distance (by Day)", x="") +
+  geom_quasirandom(method = "smiley", cex=2) +
+  theme(legend.position="none")+
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 30, vjust=+0.55))
+
+g2 <- ggplot(ts, aes(x=DayName,y=VeryActiveMinutes, fill=DayName)) +
+  geom_boxplot() +
+  labs(title="Ids with Top Very Active Minutes (by Day)", x="") +
+  geom_quasirandom(method = "smiley", cex=2) +
+  theme(legend.position="none") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 30, vjust=+0.55))
+
+grid.arrange(g1, g2,nrow=1, ncol=2)
+
+g3 <- ggplot(ts, aes(x=DayName,y=Calories, fill=DayName)) +
+  geom_boxplot() +
+  labs(title="Ids and Calories Burned (by Day)", x="") +
+  theme(legend.position="none") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 30, vjust=+0.55))
+
+g4 <- ggplot(ts, aes(x=DayName,y=TotalDistance, fill=DayName)) +
+  geom_boxplot() +
+  labs(title='Ids with Top Total Distance (by Day)', x="") +
+  geom_quasirandom(method = "smiley", cex=2) +
+  theme(legend.position="none") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 30, vjust=+0.55))
+
+grid.arrange(g3, g4,nrow=1, ncol=2)
+
+
+```
+
+```{r Id stats, echo=FALSE}
+
+print(paste0("Top Ids with very active distance"))
+dailyAct[order(dailyAct$VeryActiveDistance, decreasing = TRUE),] %>% 
+  subset(select=c("Id", "VeryActiveDistance","DayName")) %>% 
+  head(n=3)
+
+print(paste0("Top Ids with very active minutes"))
+dailyAct[order(dailyAct$VeryActiveMinutes, decreasing = TRUE),] %>% 
+  subset(select=c("Id", "VeryActiveMinutes","DayName")) %>% 
+  head(n=5)
+
+print(paste0("Ids with the highest total Distance"))
+dailyAct[order(dailyAct$TotalDistance, decreasing = TRUE),] %>% 
+  subset(select=c("Id", "TotalDistance","DayName")) %>% 
+  head(n=4)
+
+print(paste0("Ids with the highest calories burned"))
+dailyAct[order(dailyAct$Calories, decreasing = TRUE),] %>% 
+  subset(select=c("Id", "Calories","DayName")) %>% 
+  head(n=4)
+
+```
+
+#### Obervations
+(most active Participants (Ids))
+
+- Ids which are very active (in terms of minutes and distance) usually occurred on the weekend (Sat & Sun)
+- Most active Ids are 5577150313, 1624580081 & 8877689391	
+- One participant (6117666160) managed to burn 4900 calories in one activity session on a Thursday
+
+###### Daily Activity Correlations
+
+```{r variables Correlations }
+# To allow us to view the correlation of dayName we can add dayName as a number
+dailyAct$DayOfWeek <- as.integer(factor(dailyAct$DayName,
+                                        levels=c("Tuesday","Wednesday","Thursday",
+                                                  "Friday","Saturday","Sunday",
+                                                  "Monday"),ordered=TRUE))
+
+num.cols <- sapply(dailyAct, is.numeric) #returns numeric columns
+# filter numeric columns only for correlation
+numeric_dailyAct <- dailyAct[, num.cols]
+
+# Visualise the correlations
+ggcorrplot(cor(numeric_dailyAct), lab = TRUE,  lab_size = 2.3, legend.title = "Correlation",
+           tl.cex = 8) + 
+  labs(title='Activities Correlation')
+
+```
+
+
+```{r correlation Calories}
+
+# Visualise calories correlation
+cor.data <- cor(dailyAct[, num.cols]) # correlations
+cal.corr <- data.frame(var = colnames(cor.data),
+                       calories = cor.data[,13]) # capture the 13th column only
+
+cal.corr <- cal.corr[order(cal.corr$calories, decreasing = FALSE),]
+
+# geom_bar plots in alphabetical order. Factorise to current order.
+cal.corr$var <- factor(cal.corr$var, 
+                               levels = cal.corr$var)
+cal.corr <- head(cal.corr,-1) # remove last row (calories)
+
+ggplot(cal.corr, aes(x=var, y = calories)) + 
+  geom_bar(stat="summary", fun=sum, width=0.6, fill="steelblue") + 
+  labs(y="Correlation") +
+  ggtitle("Activities Correlation with Calories") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55))
+
+```
+
+```{r message=FALSE, warning=FALSE}
+# Scatter plots
+h1 = ggplot(ts, aes(x = TotalDistance, y = Calories)) +
+  geom_point(aes(color = factor(DayName))) + 
+  labs(color = "DayName") +
+  theme(plot.title = element_text(size = 10)) +
+  ggtitle("Distance Correlation vs Calories")
+
+h2 = ggplot(ts, aes(x = VeryActiveMinutes, y = Calories)) +
+  geom_point(aes(color = factor(DayName))) + 
+  labs(color = "DayName") +
+  theme(plot.title = element_text(size = 10)) +
+  ggtitle("VeryActiveMinutes vs Calories")
+
+grid.arrange(h1, h2, nrow=1, ncol=2)
+```
+
+#### Observations
+- If we look at correlations between most of the features, it’s basically the more steps taken, the greater the distance covered, and the higher level of activities, that will impact a person’s cardio levels, and the number of calories burned.
+- There are many obvious strong positive correlations like TotalSteps/TotalDistance, and ModerateActiveDistance/FairlyActiveMinutes.
+- Understandably TotalDistance, VeryActiveMinutes & TotalSteps are highly correlated with Calories
+- Other variables are below 0.5 correlation with Calories
+- light/fairly/moderate minutes and distance variables are less correlated with calories because they burn less calories.
+- There's some correlation between calories burned and Id, so some part participants are more actively burning calories than others and vice versa
+- DayOfWeek is not correlated with Calories although we can see that high levels of distance and minutes usually occurs on a Saturday & Sunday.
+- The scatter plots indicate a positive correlation with calories and TotalDistance & VeryActiveMinutes.
+
+#### Opportunities:
+- We can really promote the connection and importance of time spent exercising and the burning of calories and general fitness.
+- We can show that moving from lightly/fairly activities to higher activity minutes and distance can impact calories burned, and general fitness and weight control.
+
+
+###### Correlations (including sleep factors)
+Note, sleep data has less data points (24 participants)
+
+```{r sleep Correlation}
+
+# add DayOfWeek - to view correlation with sleep factors 
+# to allow us to view the correlation of dayName we can add dayName as a factor
+act_sleepDay$DayOfWeek <- as.integer(factor(act_sleepDay$DayName,
+                                      levels=c("Tuesday","Wednesday","Thursday", "Friday",
+                                               "Saturday","Sunday","Monday"),ordered=TRUE))
+                                                                                    
+num.cols_2 <- sapply(act_sleepDay, is.numeric) # returns numeric columns
+# filter numeric columns only for correlation
+numeric_sleep <- act_sleepDay[, num.cols_2]
+
+# Visualise the correlations
+ggcorrplot(cor(numeric_sleep), lab = TRUE, lab_size = 2.3, legend.title = "Correlation",
+           tl.cex = 8) + 
+  labs(title='Sleep Correlation')
+
+```
+
+```{r}
+
+# Visualise calories correlation
+cor.sleep <- cor(numeric_sleep) # correlations
+cal.cor_df <- data.frame(var = colnames(cor.sleep),
+                       calories = cor.sleep[,13],
+                       TotalMinutesAsleep = cor.sleep[,15]) # capture the 13th column
+
+# Order to Calories
+cal.cor_sleep <- cal.cor_df[order(cal.cor_df$calories, decreasing = FALSE),]
+
+# geom_bar plots in alphabetical order. Factorize to current order.
+cal.cor_sleep$var <- factor(cal.cor_sleep$var, 
+                       levels = cal.cor_sleep$var)
+
+# remove last row (calories)
+cal.cor_sleep <- head(cal.cor_sleep,-1) 
+
+
+# Visualise Sleep Correlation
+# Order to Sleep
+tot.cor_sleep <- cal.cor_df[order(cal.cor_df$TotalMinutesAsleep, decreasing = FALSE),]
+
+# geom_bar plots in alphabetical order. Factorize to current order.
+tot.cor_sleep$var <- factor(tot.cor_sleep$var,
+                            levels = tot.cor_sleep$var)
+# remove last row (Sleep)
+tot.cor_sleep <- head(tot.cor_sleep,-1)
+
+i1 <- ggplot(cal.cor_sleep, aes(x=var, y = calories)) + 
+  geom_bar(stat="summary", fun=sum, width=0.6, fill="steelblue") + 
+  labs(y="Correlation", x ="") +
+  ggtitle("Correlation with Calories") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55))
+
+i2 <- ggplot(tot.cor_sleep, aes(x=var, y = TotalMinutesAsleep)) +
+  geom_bar(stat="summary", fun=sum, width=0.6, fill="steelblue") +
+  labs(y="Correlation", x="") +
+  ggtitle("Correlation with Total Minutes Asleep") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55))
+
+grid.arrange(i1, i2, nrow=2, ncol=1)
+
+```
+
+#### Obervations:
+
+- Sleep data has less data points (24 participants) than the daily activity data set
+
+- There’s a little correlation (-0.25) between levels of activity and time spent sleeping but it’s not significant. So users that stayed in bed less are not particularly more active during the day. Although there is no significant correlation between time spent in bed and calories burned throughout the day, it is higher than minutes spent sleeping and calories burned.
+
+###### Which Id enjoys time in bed and sleeping
+
+```{r Ids sent in Bed}
+
+dat_records_2 <- filter(act_sleepDay, TotalSleepRecords > 1) %>%
+  group_by(Id) %>%
+  summarise(TotalSleepRecords = sum(TotalSleepRecords))
+
+bedTime <- act_sleepDay %>% group_by(Id) %>%
+  summarise(TotalTimeInBed = median(TotalTimeInBed))
+
+sleepTime <- act_sleepDay %>% group_by(Id) %>%
+  summarise(TotalMinutesAsleep = median(TotalMinutesAsleep))
+
+topsleepers <- act_sleepDay %>% group_by(Id) %>%
+  summarise(TotalTimeInBed = sum(TotalTimeInBed),
+            TotalMinutesAsleep = sum(TotalMinutesAsleep))
+topsleepers <- melt(topsleepers, id.vars = "Id", variable.name="var") 
+
+```
+
+```{r chart1}
+ggplot(dat_records_2, aes(x=reorder(factor(Id), -TotalSleepRecords), y = TotalSleepRecords)) + 
+  geom_bar(fill="steelblue",stat="identity", width=0.6,position = position_dodge()) + 
+  labs(x="", y="Sleep Records") +
+  ggtitle("Ids with Total Sleep Records > 1") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55),
+        axis.text=element_text(size=6))
+```
+
+
+```{r chart2}
+ggplot(bedTime, aes(x=reorder(factor(Id), -TotalTimeInBed), y = TotalTimeInBed)) + 
+  geom_bar(stat="identity", width=0.6,position = position_dodge(), fill="steelblue") + 
+  labs(x="", y="Minutes") +
+  ggtitle("Top Ids for Median Total Time in Bed") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55),
+        axis.text=element_text(size=6))
+```
+
+```{r chart3}
+ggplot(sleepTime, aes(x=reorder(factor(Id), -TotalMinutesAsleep), y = TotalMinutesAsleep)) + 
+  geom_bar(stat="identity", width=0.6,position = position_dodge(), fill="steelblue") + 
+  labs(x="", y="Minutes") +
+  ggtitle("Top Ids for Median Total Minutes Sleeping") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55),
+        axis.text=element_text(size=6))
+```
+
+```{r chart4}
+ggplot(topsleepers, aes(reorder(x=factor(Id), -value), y = value, fill=var)) + 
+  geom_bar(stat="identity", width=0.6,position = position_dodge()) + 
+  labs(x="", y="") +
+  ggtitle("Ids with Most Time in Bed") +
+  theme(plot.title = element_text(size = 10)) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55),
+        axis.text=element_text(size=6))
+```
+
+###### User activity patterns
+
+```{r activity patterns}
+# Very Active Minutes
+dailyAct_order1 <- dailyAct %>% group_by(Id) %>% 
+  summarise(VeryActiveMinutes = sum(VeryActiveMinutes))
+
+# Very Active Distance
+dailyAct_order2 <- dailyAct %>% group_by(Id) %>% 
+  summarise(VeryActiveDistance = sum(VeryActiveDistance))
+
+# Total Distance
+dailyAct_order3 <- dailyAct %>% group_by(Id) %>% 
+  summarise(TotalDistance = sum(TotalDistance))
+
+# Total Steps
+dailyAct_order4 <- dailyAct %>% group_by(Id) %>% 
+  summarise(TotalSteps = sum(TotalSteps))
+
+ggplot(dailyAct_order1, aes(reorder(x=factor(Id), -VeryActiveMinutes), y = VeryActiveMinutes))+
+  geom_bar(stat="identity", width=0.6, fill="steelblue") + 
+  labs(y="Minutes", x="") +
+  ggtitle("Top Ids with Very Active Minutes") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(size = 7, angle = 35, vjust=+0.55))
+
+ggplot(dailyAct_order2, aes(reorder(x=factor(Id), -VeryActiveDistance), y = VeryActiveDistance)) +
+  geom_bar(stat="identity", width=0.6, fill="steelblue") + 
+  labs(y="Distance", x="") +
+  ggtitle("Top Ids with Very Active Distance") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(size = 7, angle = 35, vjust=+0.55))
+
+ggplot(dailyAct_order3, aes(reorder(x=factor(Id), -TotalDistance), y = TotalDistance)) +
+  geom_bar(stat="identity", width=0.6, fill="steelblue") + 
+  labs(y="Total Distance", x="Id") +
+  ggtitle("Top Ids - Total Distance") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(size = 7, angle = 35, vjust=+0.55))
+
+ggplot(dailyAct_order4, aes(reorder(x=factor(Id), -TotalSteps), y = TotalSteps)) +
+  geom_bar(stat="identity", width=0.6, fill="steelblue") + 
+  labs(y="Total Steps", x="Id") +
+  ggtitle("Top Ids - Total Steps") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(size = 7, angle = 35, vjust=+0.55))
+
+```
+
+#### Obervations
+- Ids 8877689391 and 8053475328 are consistently top performers when it comes to high activity, and total distance and steps
+- Some users will have more than 1 sleep records per day and some significantly more than others
+
+#### Opportunities
+- Allow participants to see and compare profiles and statistics of the most active and high performing participants (with adherence to data sharing permissions and anonymity/privacy standards). Users could then copy or target similar statistics and activity levels to improve their own health and fitness goals.
+
+######  Intensity per hour
+
+```{r import hours}
+# Import & describe the data
+hours = read.csv("clean_data/hr_merge.csv")
+hours <- subset(hours, select = -X)
+
+str(hours)
+dim(hours)
+summary(hours)
+print(paste0("Are there any NAs = ",any(is.na(hours))))
+print(paste0("Number of unique Ids: " ,length(unique(hours$Id))))
+
+```
+
+```{r hours: format date}
+# format date
+hours$ActivityHour <- as.POSIXct(hours$ActivityHour, format= "%Y-%m-%d %H:%M:%S")
+hours <- hours[order(hours$ActivityHour),]
+
+# Extract hour from date/time
+hours$Hour <- as.numeric(strftime(hours$ActivityHour, format="%H"))
+
+chart <- hours %>%
+  select(ActivityHour, Calories, TotalIntensity) %>%
+  gather(key = "variable", value = "value", -ActivityHour)
+
+ggplot(chart, aes(x = ActivityHour, y = value)) + 
+  geom_line(aes(color = variable, linetype = variable)) + 
+  labs(y="") +
+  ggtitle("Hourly Intensity & Calories") +
+  scale_color_manual(values = c("darkorange", "steelblue"))
+
+```
+
+```{r hours correlation, message=FALSE, warning=FALSE}
+
+# Extract numeric variables for correlation
+hours_num <- hours[,sapply(hours, is.numeric)]
+
+# Visualise the correlations
+ggcorrplot(cor(hours_num), lab = TRUE) + 
+  labs(title='Correlations') +
+  scale_fill_gradient2(limit = c(0,1), low = "blue", high =  "yellow", mid = "green", midpoint = 0.5)
+
+```
+
+```{r visualise calories corr}
+# Visualise calories correlation
+
+cor_hours <- cor(hours_num)
+hrs_df <- data.frame(var = colnames(cor_hours),
+                       calories = cor_hours[,2])
+hrs_df <- hrs_df[order(hrs_df$calories, decreasing = FALSE),]
+# geom_bar plots in alphabetical order. Factorise to current order.
+hrs_df$var <- factor(hrs_df$var, 
+                       levels = hrs_df$var)
+hrs_df <- head(hrs_df,-1) # remove last row (calories)
+
+ggplot(hrs_df, aes(x=var, y = calories)) + 
+  geom_bar(stat="summary", fun=sum, width=0.6,fill="steelblue") + 
+  labs(y="Correlation", x="") +
+  ggtitle("Correlation with Calories") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55)) +
+  ylim(0, 1)
+
+```
+
+###### Group "Hours" into parts of the day
+
+- Morning = 5am to 12pm
+- Afternoon = 12pm to 5pm
+- Evening = 5pm to 9pm
+- Night = 9pm to 4am
+
+```{r part of the day}
+
+# Group "Hours" into parts of the day
+hours$PartOfDay <- with(hours,
+                        ifelse((Hour >= 5 & Hour < 12), "morning",
+                               ifelse((Hour >= 12 & Hour < 17), "afternoon",
+                                      ifelse((Hour >=17 & Hour < 21), "evening",
+                                             "night"))))
+
+j1 <- ggplot(hours, aes(x=PartOfDay,y=TotalIntensity, fill=PartOfDay)) +
+  geom_boxplot() +
+  labs(title="Part of the Day & Total Intensity", x="") +
+  theme(legend.position="none")+
+  theme(plot.title = element_text(size = 10)) 
+  
+  
+j2 <- ggplot(hours, aes(x=PartOfDay,y=Calories, fill=PartOfDay)) +
+  geom_boxplot() +
+  labs(title="Part of the Day & Calories", x="") +
+  theme(legend.position="none") +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(j1, j2, nrow=1, ncol=2)
+
+```
+
+```{r scatter plots}
+# Scatter plot - intensity v calories
+k1 <- ggplot(hours, aes(x = TotalIntensity, y = Calories)) +
+  geom_point(aes(color = factor(PartOfDay))) + 
+  labs(color = "Part Of Day") +
+  ggtitle("Part of the Day & Total Intensity") +
+  theme(plot.title = element_text(size = 10)) 
+
+# Boxplot - hours of day v calories
+k2 <- ggplot(hours, aes(x = TotalIntensity, y = Calories)) +
+  geom_point(alpha = 0.4,aes(color = Hour)) + 
+  labs(color = "Hour", y="") +
+  ggtitle("Hour of the Day & Total Intensity") +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(k1, k2, nrow=1, ncol=2)
+
+ggplot(hours, aes(x=factor(Hour),y=TotalIntensity, fill=factor(Hour))) +
+  geom_boxplot() +
+  labs(title="Hours of the Day & Total Intensity", x="Hour") +
+  theme(legend.position="none")+
+  theme(plot.title = element_text(size = 10)) 
+
+
+```
+
+#### Observations:
+- From the Correlation matrix we can see clear and understandable correlations between calories, intensity and steps
+- TotalIntensity and AverageIntensity are completed correlated. 
+- The mean/median for intensity levels and calories burned, is highest in the evenings, closely followed by the afternoon.
+- In the scatter plot you can see the relationship between intensity and calories, and also that most of the high intensity and calorie burn takes place around 6pm and this is confirmed in the boxplot.  
+- For the hourly distribution we can see that the median TotalIntensity is at at it's highest around 5 and 6pm. Intensity reduces slowly up to 12pm.
+- Although median is zero for the period between 12 pm and 5am, we can still see some activity around these hours. One participant achieves close to 125 total intensity at 2am.
+
+#### Opportunities:
+- Customers may appreciate a view of the high intensity and calorie burning periods during the day. They may see gaps in their own activity profile, allowing them to allocate more time at certain parts of the day to fitness activities. It can also provide information on when gyms and parks are likely to be at their busiest.
+
+###### METs
+
+Metabolic Equivalents
+
+1 x MET = Energy you use when resting
+ 
+4 x METs - exerting 4 times the energy than you would if you were sitting still 
+
+To get accurate MET values, divide by 10.
+
+```{r import METs data}
+
+# Import the data & Describe
+mins = read.csv("clean_data/min_merge.csv")
+
+# To get accurate MET values, divide by 10.
+mins$METs <- mins$METs / 10
+
+# Group "Hours" into parts of the day
+mins$PartOfDay <- with(mins,
+                        ifelse((Hour >= 5 & Hour < 12), "morning",
+                               ifelse((Hour >= 12 & Hour < 17), "afternoon",
+                                      ifelse((Hour >=17 & Hour < 21), "evening",
+                                             "night"))))
+
+str(mins)
+dim(mins)
+summary(mins)
+print(paste0("Are there any NAs: " ,any(is.na(mins))))
+print(paste0("Number of unique Ids: " ,length(unique(mins$Id))))
+
+
+```
+
+
+
+```{r minutes formatting}
+
+# change to date format
+mins$ActivityMinute <- as.POSIXct(mins$ActivityMinute, format="%Y-%m-%d")
+# order the date
+mins <-mins[order(mins$ActivityMinute),]
+
+# Create a DayName column from the datetime
+mins$DayName <- weekdays(mins$ActivityMinute)  
+
+# to allow us to view the correlation of dayName we can add dayName as a number
+mins$DayOfWeek <- as.integer(factor(mins$DayName,levels=c("Tuesday","Wednesday","Thursday",
+                                                                "Friday","Saturday","Sunday",
+                                                                  "Monday"),ordered=TRUE))
+
+```
+
+```{r minutes analysis, message=FALSE, warning=FALSE}
+
+# METs Distribution
+ggplot(mins, aes(x=METs))+
+  geom_histogram(color="darkblue", fill="lightblue", bins=5) +
+  labs(title="METs Distribution", x="METs", y="")
+
+```
+
+```{r Day & Hour analsis, message=FALSE, warning=FALSE}
+
+# Calculate the mean & plot part of day & hour for METs
+meanMET <- mins %>% group_by(Min, Hour) %>%
+  summarise(METs = mean(METs))
+
+meanMETs <- mins %>% group_by(PartOfDay) %>%
+  summarise(METs = mean(METs))
+
+l1 <- ggplot(mins, aes(x=factor(PartOfDay),y=METs, fill=factor(PartOfDay))) +
+  geom_boxplot() +
+  labs(title="PartOfDay & Intensity/minute", x="Part of Day") +
+  theme(legend.position="none")+
+  theme(plot.title = element_text(size = 10)) 
+
+l2 <- ggplot(meanMETs, aes(x=PartOfDay, y = METs)) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  #geom_bar(stat="summary", fun=sum, fill="blue") +
+  ggtitle("Part Of Day & mean METs per Minute") +
+  labs(x="Part of the Day", y="METs(mean)") +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(l1, l2, nrow=1, ncol=2)
+
+ggplot(meanMET, aes(x=factor(Hour),y=METs, fill=factor(Hour))) +
+  geom_boxplot() +
+  labs(title="Mean METs for Each Hour of the Day", x="Hour", y="Variables") +
+  theme(legend.position="none")
+
+```
+
+#### Observations:
+- Mean METs follows a similar pattern to the Total Intensity for hour of the day. The hours 5pm - 7pm show the highest average MET. The variations are wider in METs (than Intensity) because MET is more sensitive - energy recorded when not resting
+- We can see a clear dip in energy at 3pm before rising and peaking at 7pm. It then drops off during the later hours
+- Evening activities have the highest mean METS per minute.
+
+#### Opportunities:
+- Using MET data, a MET feature could provide participants with a complete profile of their energy levels throughout the day (and across days). For example, they could use this to plan when to do work activities that require high concentration, or best time to plan their fitness activities.
+
+###### Minutes Correlation
+```{r mins corr, message=FALSE, warning=FALSE}
+
+# Minutes Correlation
+mins_num <- mins[,sapply(mins, is.numeric)]
+
+ggcorrplot(cor(mins_num), lab = TRUE) + 
+  labs(title='Variable Correlation') +
+  theme(plot.title = element_text(size = 10)) +
+  scale_fill_gradient2(limit = c(0,1), low = "steelblue", high =  "yellow", mid = "green", midpoint = 0.5)
+
+
+```
+
+```{r mETs corr, message=FALSE, warning=FALSE}
+
+# Correlaton with METs
+cor_mins <- cor(mins_num)
+mins_df <- data.frame(var = colnames(cor_mins),
+                     METs = cor_mins[,5])
+mins_df <- mins_df[order(mins_df$METs, decreasing = FALSE),]
+# geom_bar plots in alphabetical order. Factorise to current order.
+mins_df$var <- factor(mins_df$var, 
+                     levels = mins_df$var)
+mins_df <- head(mins_df,-1) # remove last row (METs)
+
+ggplot(mins_df, aes(x=var, y = METs)) + 
+  geom_bar(stat="summary", fun=sum, width=0.6,fill="steelblue") + 
+  labs(y="Correlation") +
+  ggtitle("Correlation with METs") +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 45, vjust=+0.55)) +
+  ylim(0, 1)
+
+```
+
+#### Observations:
+
+- Obviously METs is highly correlated with intensity and therefore calories. Mean METs follows a similar pattern to the Total Intensity for hour of the day. The hours 5pm - 7pm show the highest average MET. We can see a clear dip in energy at 3pm before rising and peaking at 7pm. It then drops off during the later hours. 
+
+```{r METs analysis, message=FALSE, warning=FALSE}
+
+# User & METs
+
+meanIds <- mins %>% group_by(Id) %>%
+  summarise(METs = mean(METs))
+# order largest to smallest
+meanIds <- meanIds[order(meanIds$METs, decreasing = TRUE),]
+# top ten
+meanIds <- head(meanIds, 10)
+
+m1 <- ggplot(meanIds, aes(x=reorder(Id, -METs), y = METs, fill=factor(Id))) + 
+  geom_bar(stat="identity") +
+  ggtitle("Ids with top mean METs per Minute") +
+  labs(x="", y="METs(mean)") +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = 7, angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+sortMETs <- mins[order(mins$METs, decreasing = TRUE),]
+sortMETs <- head(sortMETs,10)
+
+# ggplot does not normally work well with duplicates because it cannot plot duplicate values 
+# along the x-axis without deploying some hack.
+# To make duplicate factor levels unique in an R data frame, we can use make.unique function.
+
+sortMETs <- within(sortMETs,Id<- ave(as.character(Id),FUN=make.unique))
+
+m2 <- ggplot(sortMETs, aes(x=reorder(Id, -METs), y = METs, fill=DayName)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Ids with top METs per Minute by Day of Week") +
+  labs(x="", y="METs") +
+  #theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = 7, angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+m3 <- ggplot(sortMETs, aes(x=reorder(Id, -METs), y = METs, fill=PartOfDay)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Ids with top METs per Minute by Day of Week") +
+  labs(x="", y="METs") +
+  #theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = 7,angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+m4 <-ggplot(sortMETs, aes(x=reorder(Id, -METs), y = METs, fill=factor(Hour))) + 
+  geom_bar(stat="identity") +
+  ggtitle("Ids with top METs per Minute by Hour of Day") +
+  labs(x="", y="METs") +
+  #theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = 7, angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(m1, m2, nrow=1, ncol=2)
+grid.arrange(m3, m4, nrow=1, ncol=2)
+
+```
+
+#### Observations
+- If you compare previous top Ids for very active minutes, distance and steps, and top Ids for METs, you will see similar Ids appearing, so the correlation between these factors are strong
+
+- Highest mean METs per minute was on a Saturday in the morning at 7am. Users with the highest METs occur on a Saturday, Sunday and a Thursday. And this usually occurs in the morning and afternoon, around 7am to 8am and 4pm
+
+
+###### Sleep Level and Heart Rate
+
+```{r import Heart Rate data}
+
+# import the data
+sleepHR = read.csv("clean_data/min_sleep_HR_inner.csv")
+sleepHR <- subset(sleepHR, select = -X)
+
+str(sleepHR)
+dim(sleepHR)
+summary(sleepHR)
+print(paste0("Are there any NAs: " ,any(is.na(sleepHR))))
+print(paste0("Number of unique Ids: " ,length(unique(sleepHR$Id))))
+
+```
+
+###### Format data, create day name & rename state variable
+```{r processing HR data}
+
+# change to date format
+sleepHR$ActivityMinute <- as.POSIXct(sleepHR$ActivityMinute, format="%Y-%m-%d")
+# order the date
+sleepHR <-sleepHR[order(sleepHR$ActivityMinute),]
+
+# Create a DayName column from the datetime
+sleepHR$DayName <- weekdays(sleepHR$ActivityMinute)  
+
+# to allow us to view the correlation of dayName we can add dayName as a number
+sleepHR$DayOfWeek <- as.integer(factor(sleepHR$DayName,
+                                       levels=c("Tuesday","Wednesday",
+                                                                "Thursday",
+                                                                "Friday","Saturday","Sunday",
+                                                                "Monday"),ordered=TRUE))
+
+# To get accurate MET values, divide by 10.
+sleepHR$METs <- sleepHR$METs / 10
+# Group "Hours" into parts of the day
+sleepHR$PartOfDay <- with(sleepHR,
+                       ifelse((Hour >= 5 & Hour < 12), "morning",
+                              ifelse((Hour >= 12 & Hour < 17), "afternoon",
+                                     ifelse((Hour >=17 & Hour < 21), "evening",
+                                            "night"))))
+# Rename "State" to "SleepLevel"
+sleepHR <- sleepHR %>% 
+  rename(SleepLevel = State)
+print(paste0("Intensity Levels: " ,unique(sleepHR$Intensity)))
+print(paste0("Sleep Levels: " ,unique(sleepHR$SleepLevel)))
+
+```
+
+Note:
+
+Intensity = 0:Sedentary, 1:Light, 2:Moderate, 3:Very Active
+
+Sleep Level = 1:asleep, 2:restless, 3:awake
+
+```{r HR dist}
+
+# plot HR distribution
+n1 <- ggplot(sleepHR)+
+  geom_histogram(aes(x=meanHR), color="darkblue", fill="lightblue", bins=15) +
+  labs(title="Average HR Distribution (per minute)", x="meanHR") +
+  theme(plot.title = element_text(size = 10)) 
+
+# plot Sleep Level distribution
+n2 <- ggplot(sleepHR)+
+  geom_histogram(aes(x=SleepLevel), color="darkblue", fill="lightblue", bins=10) +
+  labs(title="SleepLevel Distribution (per minute)", x="SleepLevel") +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(n1, n2, nrow=1, ncol=2)
+
+```
+
+###### Sleep Level Correlations
+
+```{r sleep Level  corr, message=FALSE, warning=FALSE}
+
+sleepHR_num <- sleepHR[,sapply(sleepHR, is.numeric)]
+
+ggcorrplot(cor(sleepHR_num), lab = TRUE, tl.cex = 7) + 
+  labs(title='Sleep Correlation') +
+  scale_fill_gradient2(limit = c(0,1), low = "steelblue", high =  "yellow", mid = "green", midpoint = 0.5)
+
+```
+
+
+```{r correlations, message=FALSE, warning=FALSE}
+
+sleep_corr <- cor(sleepHR_num)
+
+# Correlation with METs
+sleep_cor_df <- data.frame(var = colnames(sleep_corr), METs = sleep_corr[,5])
+sleep_cor_df <- sleep_cor_df[order(sleep_cor_df$METs, decreasing=FALSE),]
+# geom_bar plots in alphabetical order so we factorise to current order
+sleep_cor_df$var <- factor(sleep_cor_df$var, levels = sleep_cor_df$var)
+sleep_cor_df <- head(sleep_cor_df,-1)
+
+# Correlation with Sleep Level
+sleep_cor_df2 <- data.frame(var = colnames(sleep_corr), SleepLevel = sleep_corr[,10])
+sleep_cor_df2 <- sleep_cor_df2[order(sleep_cor_df2$SleepLevel, decreasing=FALSE),]
+# geom_bar plots in alphabetical order so we factorise to current order
+sleep_cor_df2$var <- factor(sleep_cor_df2$var, levels = sleep_cor_df2$var)
+sleep_cor_df2 <- head(sleep_cor_df2,-1)
+
+# Correlation with Heart Rate
+sleep_cor_df3 <- data.frame(var = colnames(sleep_corr), meanHR = sleep_corr[,11])
+sleep_cor_df3 <- sleep_cor_df3[order(sleep_cor_df3$meanHR, decreasing=FALSE),]
+# geom_bar plots in alphabetical order so we factorise to current order
+sleep_cor_df3$var <- factor(sleep_cor_df3$var, levels = sleep_cor_df3$var)
+sleep_cor_df3 <- head(sleep_cor_df3,-1)
+
+O1 = ggplot(sleep_cor_df, aes(x=var, y = METs)) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(y="correlation", x="") +
+  ggtitle("Variable Correlation with METs") +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+O2 <- ggplot(sleep_cor_df2, aes(x=var, y = SleepLevel)) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(y="", x="") +
+  ggtitle("Variable Correlation with Sleep Level") +
+  ylim(-0.1,1) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+O3 <- ggplot(sleep_cor_df3, aes(x=var, y = meanHR)) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(y="correlation", x="") +
+  ggtitle("Variable Correlation with Heart Rate") +
+  ylim(-0.1,1) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+O4 <- ggplot(sleepHR, aes(x = Intensity, y = METs)) +
+  geom_point(alpha = 0.4,aes()) + 
+  labs(y="METs") +
+  ggtitle("Intensity Level & METs Correlation") +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(O1, O2, nrow=1, ncol=2)
+grid.arrange(O3, O4, nrow=1, ncol=2)
+
+```
+
+###### Heart Rate Analysis
+
+```{r HR analysis}
+
+p1 <- ggplot(sleepHR, aes(x=factor(DayName),y=meanHR, fill=factor(DayName))) +
+  geom_boxplot() +
+  labs(title="Average Heart Rate by Day of the Week", x="Day of Week") +
+  theme(legend.position="none") +
+  theme(plot.title = element_text(size = 10)) 
+
+p2 <- ggplot(sleepHR, aes(x=factor(DayName),y=meanHR, fill=factor(PartOfDay))) +
+  geom_boxplot() +
+  labs(title="Average Heart Rate by PartOfDay", x="Day of Week") +
+  theme(plot.title = element_text(size = 10)) 
+
+p3 <- ggplot(sleepHR, aes(x = Intensity, y = meanHR)) +
+  geom_point(alpha = 0.4,aes()) + 
+  labs(y="Mean Heart Rate") +
+  ggtitle("Correlation for Average Heart Rate and Intensity") +
+  geom_smooth(method='lm', formula= y~x) +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(p1, nrow=1, ncol=1) 
+grid.arrange(p2, nrow=1, ncol=1) 
+grid.arrange(p3, nrow=1, ncol=1) 
+
+```
+
+#### Observations:
+
+- There are only 11 Users with Heart Rate data which is a very small sample size
+- Average Heart Rate is slightly positive correlated with METs and Intensity Level.
+- There appears to be some correlation between Sleep Level and the number of steps, and a slight correlation with Sleep Level and Intensity and METs.
+- There is high positive correlation between Intensity Level and METs (and calories burned).
+- Higher average heart rates are recorded on a Saturday, mostly during the evening but quite a few on a Saturday night.
+- The lowest Heart Rates occur on a Wednesday evening
+
+#### Opportunities:
+- Keeping track of your heart rate can give you insight into your fitness level, heart health and emotional health. Heart Rates over time can give users insights into when (days of the week and time of the day) their heart rates are rising and falling and if these variations are a result of normal activities, exercise, or stress.  
+
+Note:
+
+Intensity = 0:Sedentary, 1:Light, 2:Moderate, 3:Very Active
+
+Sleep Level = 1:asleep, 2:restless, 3:awake
+
+###### Sleep Levels
+###### NOTE: When analysing this data it was noted that some days of the week have more records than others. Therefore, when analysing over time, especially patterns over days of the week, to deal with unbalanced data, it's probably best to use percentages rather than total time. 
+
+```{r sleep Levels}
+
+# Which day has the largest restless percentage of sleep
+dayList <- unique(sleepHR$DayName)
+# dayList <- "Tuesday"
+ls <- list()
+for (day in dayList) {
+  x <- sleepHR[sleepHR$DayName == day,]
+  y <- x[x$SleepLevel == 2,]
+  z <- nrow(y)/nrow(x)
+  ls <- append(ls,z)
+}
+ls <- matrix(unlist(ls))
+ls_df <- data.frame(dayList)
+ls_df$Level2 <- ls
+ls_df <- ls_df[order(ls_df$Level2, decreasing=FALSE),]
+ls_df$dayList <- factor(ls_df$dayList, levels = ls_df$dayList)
+
+q1 <- ggplot(ls_df, aes(x=dayList, y = (Level2*100))) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(y="Percentage Level 2", , x="Day") +
+  ggtitle("Percentage Restless for Day of the Week") +
+  ylim(0,10) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+# Which day has the largest awake level percentage of sleep periods
+ls2 <- list()
+for (day in dayList) {
+  x <- sleepHR[sleepHR$DayName == day,]
+  y <- x[x$SleepLevel == 3,]
+  z <- nrow(y)/nrow(x)
+  ls2 <- append(ls2,z)
+}
+
+ls2 <- matrix(unlist(ls2))
+ls2_df <- data.frame(dayList)
+ls2_df$Level <- ls2
+ls2_df <- ls2_df[order(ls2_df$Level, decreasing=FALSE),]
+ls2_df$dayList <- factor(ls2_df$dayList, levels = ls2_df$dayList)
+
+q2 <- ggplot(ls2_df, aes(x=dayList, y = (Level*100))) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(y="Percentage Level 3", , x="Day") +
+  ggtitle("Percentage Awake for Day of the Week") +
+  ylim(0,5) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+# Which hour of the day has the largest restless percentage of sleep
+hourList <- unique(sleepHR$Hour)
+# dayList <- "Tuesday"
+ls3 <- list()
+for (hour in hourList) {
+  x <- sleepHR[sleepHR$Hour == hour,]
+  y <- x[x$SleepLevel == 2,]
+  z <- nrow(y)/nrow(x)
+  ls3 <- append(ls3,z)
+}
+
+ls3 <- matrix(unlist(ls3))
+ls3_df <- data.frame(hourList)
+ls3_df$Level <- ls3
+ls3_df <- ls3_df[order(ls3_df$Level, decreasing=FALSE),]
+ls3_df$hourList <- factor(ls3_df$hourList, levels = ls3_df$hourList)
+
+q3 <- ggplot(ls3_df, aes(x=hourList, y = (Level*100))) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(y="Percentage Level 2", x="Hour") +
+  ggtitle("Percentage Restless for Hour of Day") +
+  ylim(0,20) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+# Which hour of the day has the largest awake percentage of sleep
+ls4 <- list()
+for (hour in hourList) {
+  x <- sleepHR[sleepHR$Hour == hour,]
+  y <- x[x$SleepLevel == 3,]
+  z <- nrow(y)/nrow(x)
+  ls4 <- append(ls4,z)
+}
+
+ls4 <- matrix(unlist(ls4))
+ls4_df <- data.frame(hourList)
+ls4_df$Level <- ls4
+ls4_df <- ls4_df[order(ls4_df$Level, decreasing=FALSE),]
+ls4_df$hourList <- factor(ls4_df$hourList, levels = ls4_df$hourList)
+
+q4 <- ggplot(ls4_df, aes(x=hourList, y = (Level*100))) + 
+  geom_bar(stat="identity", fill="steelblue") +
+  labs(y="Percentage Level 3", x="Hour") +
+  ggtitle("Percentage Awake for Hour of Day") +
+  ylim(0,10) +
+  theme(axis.text.x = element_text(angle = 35, vjust=+0.55)) +
+  theme(plot.title = element_text(size = 10)) 
+
+grid.arrange(q1, q2, nrow=1, ncol=2) 
+grid.arrange(q3, q4, nrow=1, ncol=2) 
+
+```
+
+#### Observations:
+
+- All the days have a similar percentage of Level 1 sleep (93% - 94%). Thursday has the highest and Sunday the lowest, but there's really not much difference.
+- Tuesday has the highest percentage for Level 2 (6% restless) whilst Friday has the lowest at 4.8%.
+- Sunday has the highest Level 3 (1.3% awake). This may be related to users’ apprehension for start of the working week on Monday morning. Thursday and Tuesday have the least Level 3 percentage at 0.7%.
+- In relation to hours of the day, 11am appears to have the best Level 1 sleep pattern (99.7% asleep) and 5pm is second highest. Further investigation is probably required here as to why this is. Not sure if people are actually sleeping at 5pm in the day. A sample larger than 11 would prevent skewing by one or two individuals. 8pm and 9pm has the lowest percentage of Level 1 sleep although this is probably when people have just gone to bed and just beginning to fall asleep. Understandably this time is also reflected at Level 2 (restless) and Level 3 (awake).
+- In general correlation between quality of sleep and intensity/METs, and calories consumed, is low.
+
+#### Opportunities:
+- If participants can see their sleep profile - including how much sleep and the quality of that sleep - users could make the necessary adjustments to improve their sleep and overall wellbeing.
+
