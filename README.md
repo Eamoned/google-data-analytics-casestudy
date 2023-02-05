@@ -16,6 +16,8 @@ The analysis, insights gained and subsequent recommendations are based on the an
 
 ### References
 
+The Scope of Work (Scope-Of-Work-CaseStudy.pdf) can be viewed here: https://github.com/Eamoned/google-data-analytics-casestudy.git
+
 For Case study summary check out https://eamoned.github.io/google-data-analytics-casestudy/
 
 Initial data processing (and final transformations) can be found here: https://eamoned.github.io/google-data-analytics-casestudy-process/
