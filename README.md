@@ -20,6 +20,8 @@ The Scope of Work (Scope-Of-Work-CaseStudy.pdf) can be viewed here: https://gith
 
 For Case study summary check out https://eamoned.github.io/google-data-analytics-casestudy/
 
+Final Recommendations: https://eamoned.github.io/google-data-analytics-casestudy-recommendations/
+
 Initial data processing (and final transformations) can be found here: https://eamoned.github.io/google-data-analytics-casestudy-process/
 
 For the analysis of the smart device fitness data, checkout the reports here:
@@ -27,3 +29,5 @@ For the analysis of the smart device fitness data, checkout the reports here:
 For Python analysis in Jupyter Notebook: https://eamoned.github.io/google-data-analytics-casestudy-python-analyse/
 
 For R analysis using R Studio: https://eamoned.github.io/google-data-analytics-casestudy-r-analyse/
+
+
