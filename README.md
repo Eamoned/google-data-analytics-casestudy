@@ -1,4 +1,7 @@
 ## Google Data Analytics Capstone - a complete case study
+
+## Case Study - Analyze smart device usage data to gain insights into how consumers use smart devices.
+
 This case study is part of the Google Data Analytics Professional Certificate and follows the 6 phases of data analysis according to Google.
 - Ask
 - Prepare
